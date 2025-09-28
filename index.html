@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Quick Totals — калькулятор тотала по темпу</title>
+<style>
+  :root{
+    --bg: #0f1720; --card: #111318; --muted: #9aa6b2; --accent: #18a0ff; --good: #16a34a; --bad: #dc2626;
+    --glass: rgba(255,255,255,0.03);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .light-theme{
+    --bg: #f5f5f5; --card: #ffffff; --muted: #6b7280; --accent: #3b82f6; --good: #10b981; --bad: #ef4444;
+    --glass: rgba(0,0,0,0.03);
+    color: #1f2937;
+  }
+  html,body{height:100%; margin:0; background: var(--bg); color: var(--bg) == #f5f5f5 ? #1f2937 : #e6eef6; transition: background 0.3s;}
+  .wrap{max-width:100%; margin:0 auto; padding:12px; box-sizing:border-box;}
+  header{display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;}
+  header h1{font-size:18px;margin:0; color:var(--accent); flex:1;}
+  header p{margin:0; color:var(--muted); font-size:12px; width:100%;}
+  .theme-toggle{background:var(--accent); color:white; border:none; border-radius:20px; padding:6px 12px; font-size:12px; cursor:pointer;}
+  .card{background:var(--card); border-radius:10px; padding:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:10px;}
+  label{font-size:13px; color:var(--muted); display:block; margin-bottom:4px;}
+  .row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;}
+  .col{flex:1 1 calc(50% - 6px); min-width:0; box-sizing:border-box;}
+  .full-width{flex:1 1 100%;}
+  input[type="number"], input[type="text"], select{
+    width:100%; padding:10px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); 
+    background:var(--glass); color:inherit; font-size:16px; box-sizing:border-box;
+    -webkit-appearance: none; appearance: none;
+  }
+  .small{font-size:11px; color:var(--muted); margin-top:4px;}
+  .result{background:var(--glass); border-radius:8px; padding:10px; margin-top:8px;}
+  .big{font-weight:700; font-size:18px; color:var(--accent);}
+  .muted{color:var(--muted); font-size:12px;}
+  .grid{display:grid; grid-template-columns:1fr; gap:8px;}
+  .btn{padding:10px; border-radius:6px; background:var(--accent); color:white; border:none; font-weight:600; cursor:pointer; width:100%; margin-bottom:6px;}
+  .btn.secondary{background:transparent; border:1px solid var(--muted); color:var(--muted);}
+  .scenario{padding:8px; border-radius:6px; background:var(--glass);}
+  .positive{color:var(--good); font-weight:700;}
+  .negative{color:var(--bad); font-weight:700;}
+  footer{margin-top:6px; color:var(--muted); font-size:11px; text-align:center;}
+  .inline{display:flex; gap:6px; align-items:center;}
+  input[type="range"]{width:100%;}
+  .keyboard{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:10px;}
+  .keyboard button{height:44px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); background:var(--card); font-size:18px; cursor:pointer;}
+  .keyboard button:active{background:var(--accent); color:white;}
+  .keyboard-container{display:none; position:fixed; bottom:0; left:0; right:0; background:var(--card); padding:10px; box-shadow:0 -2px 10px rgba(0,0,0,0.1); z-index:100;}
+  @media (min-width:520px){
+    .wrap{max-width:500px; padding:15px;}
+    .grid{grid-template-columns:1fr 1fr;}
+    .keyboard{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Калькулятор тотала по темпу</h1>
+    <button class="theme-toggle" id="themeToggle">Светлая тема</button>
+    <p>Быстрый прикид для лайв-решения: сравни свой прогноз с линией букмекера.</p>
+  </header>
+
+  <!-- Блок загрузки скрина -->
+  <div class="card">
+    <label>Загрузить скриншот</label>
+    <input type="file" id="upload" accept="image/*">
+    <div id="ocrStatus" class="small">Ожидание загрузки...</div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="col">
+        <label>Длина матча</label>
+        <select id="matchLen">
+          <option value="48">NBA - 48</option>
+          <option value="40">Other - 40</option>
+          <option value="16">Кибербаскет 4×4 (16)</option>
+          <option value="20">Кибербаскет 4×5 (20)</option>
+          <option value="custom">Своя...</option>
+        </select>
+        <input id="customLen" type="number" min="1" step="1" style="display:none;margin-top:6px" placeholder="Минуты" inputmode="numeric" />
+      </div>
+
+      <div class="col">
+        <label>Прогресс матча</label>
+        <div class="inline">
+          <input id="progressPct" type="number" min="0" max="100" step="0.1" value="30" inputmode="decimal" />
+          <span class="muted">%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Текущий темп (очки/мин)</label>
+        <input id="tempoNow" type="number" step="0.01" value="5.01" inputmode="decimal" />
+      </div>
+
+      <div class="col">
+        <label>Средний темп лиги</label>
+        <input id="tempoLeague" type="number" step="0.01" value="2.00" inputmode="decimal" />
+      </div>
+    </div>
+
+    <div class="row full-width">
+      <label>Вес текущего темпа</label>
+      <div class="inline">
+        <input id="weight" type="range" min="0" max="100" value="50" />
+        <div style="width:40px; text-align:center; font-size:14px;" id="wtLabel">50%</div>
+      </div>
+      <div class="small">0% = лига, 100% = текущий темп</div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Линия букмекера</label>
+        <input id="bookLine" type="number" step="0.1" placeholder="Напр. 190" inputmode="decimal" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <button class="btn" id="calcBtn">Посчитать</button>
+      </div>
+      <div class="col">
+        <button class="btn secondary" id="copyBtn">Скопировать итог</button>
+      </div>
+    </div>
+
+    <div class="result" id="out">
+      <div class="grid">
+        <div class="scenario">
+          <div class="muted">Минут сыграно</div>
+          <div class="big" id="minsPlayed">—</div>
+          <div class="muted">Очки сейчас</div>
+          <div id="pointsNow" class="big">—</div>
+          <div class="muted">Минут осталось</div>
+          <div id="minsLeft" class="big">—</div>
+        </div>
+
+        <div class="scenario">
+          <div class="muted">Проекция (оставшиеся минуты)</div>
+          <div class="muted">По текущему темпу</div>
+          <div class="big" id="projNow">—</div>
+          <div class="muted">По среднему темпу</div>
+          <div class="big" id="projLeague">—</div>
+        </div>
+
+        <div class="scenario">
+          <div class="muted">Ожидаемый тотал</div>
+          <div class="muted">(текущий темп)</div>
+          <div class="big" id="expNow">—</div>
+          <div class="muted">(лига)</div>
+          <div class="big" id="expLeague">—</div>
+        </div>
+
+        <div class="scenario">
+          <div class="muted">Смешанный прогноз</div>
+          <div class="big" id="expMixed">—</div>
+          <div class="muted">Вес текущего темпа</div>
+          <div class="big" id="wtEcho">—</div>
+        </div>
+      </div>
+
+      <div id="bookCompare" class="muted" style="margin-top:8px; font-size:13px;">Линия: —</div>
+    </div>
+
+    <div class="small" style="margin-top:8px;">Примечание: если текущая эффективность аномальная, обычно имеет смысл смягчать прогноз (двигать ползунок в сторону среднего).</div>
+  </div>
+
+  <footer>Сделано для быстрой оценки. Ответственность за ставки — на вас.</footer>
+</div>
+
+<!-- Подключаем Tesseract.js -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@v5.0.0/dist/tesseract.min.js"></script>
+<script>
+(function(){
+  const matchLen = document.getElementById('matchLen');
+  const customLen = document.getElementById('customLen');
+  const progressPct = document.getElementById('progressPct');
+  const tempoNow = document.getElementById('tempoNow');
+  const tempoLeague = document.getElementById('tempoLeague');
+  const weight = document.getElementById('weight');
+  const wtLabel = document.getElementById('wtLabel');
+  const bookLine = document.getElementById('bookLine');
+  const minsPlayedEl = document.getElementById('minsPlayed');
+  const pointsNowEl = document.getElementById('pointsNow');
+  const minsLeftEl = document.getElementById('minsLeft');
+  const projNowEl = document.getElementById('projNow');
+  const projLeagueEl = document.getElementById('projLeague');
+  const expNowEl = document.getElementById('expNow');
+  const expLeagueEl = document.getElementById('expLeague');
+  const expMixedEl = document.getElementById('expMixed');
+  const wtEcho = document.getElementById('wtEcho');
+  const bookCompare = document.getElementById('bookCompare');
+
+  function num(x){ return Number(x) || 0; }
+  function r(x){ return Math.round(x*10)/10; }
+
+  function calculate(){
+    let totalMinutes = (matchLen.value === 'custom') ? num(customLen.value) : num(matchLen.value);
+    if(totalMinutes <= 0) totalMinutes = 48;
+    let progressPercent = num(progressPct.value);
+    if(progressPercent < 0) progressPercent = 0;
+    if(progressPercent > 100) progressPercent = 100;
+
+    const minsPlayed = totalMinutes * (progressPercent/100);
+    const tNow = num(tempoNow.value);
+    const tLeague = num(tempoLeague.value);
+    const ptsNow = tNow * minsPlayed;
+    const minsLeft = Math.max(0, totalMinutes - minsPlayed);
+
+    const projNow = tNow * minsLeft;
+    const projLeague = tLeague * minsLeft;
+    const expNow = ptsNow + projNow;
+    const expLeague = ptsNow + projLeague;
+
+    const w = num(weight.value)/100;
+    const mixedTempo = tNow * w + tLeague * (1 - w);
+    const projMixed = mixedTempo * minsLeft;
+    const expMixed = ptsNow + projMixed;
+
+    minsPlayedEl.textContent = r(minsPlayed) + ' мин';
+    pointsNowEl.textContent = r(ptsNow) + ' очк';
+    minsLeftEl.textContent = r(minsLeft) + ' мин';
+    projNowEl.textContent = r(projNow);
+    projLeagueEl.textContent = r(projLeague);
+    expNowEl.textContent = r(expNow);
+    expLeagueEl.textContent = r(expLeague);
+    expMixedEl.textContent = r(expMixed);
+    wtEcho.textContent = Math.round(w*100) + '% (темп=' + r(mixedTempo) + ')';
+
+    const line = num(bookLine.value);
+    if(line > 0){
+      const diff = r(expMixed - line);
+      let verdict = '';
+      if(Math.abs(diff) < 2){
+        verdict = `Линия ${line}. Прогноз ≈ ${r(expMixed)} (≈ совпадает).`;
+      } else if(diff > 0){
+        verdict = `Линия ${line}. Прогноз ≈ ${r(expMixed)} — ценность на ТБ (+${diff}).`;
+      } else {
+        verdict = `Линия ${line}. Прогноз ≈ ${r(expMixed)} — ценность на ТМ (${diff}).`;
+      }
+      bookCompare.textContent = verdict;
+    } else {
+      bookCompare.textContent = 'Линия: не указана.';
+    }
+  }
+
+  document.getElementById('calcBtn').addEventListener('click', calculate);
+  weight.addEventListener('input', ()=> wtLabel.textContent = weight.value + '%');
+
+  // OCR загрузка
+  document.getElementById('upload').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById('ocrStatus');
+    status.textContent = "Распознаём текст...";
+    try {
+      const { data: { text } } = await Tesseract.recognize(file, 'rus+eng');
+      console.log("OCR text:", text);
+      status.textContent = "Распознавание завершено ✅";
+
+      // Автоопределение кибербаскета 4×4 или 4×5
+      if (/4\s*[×xх]\s*4/.test(text)) {
+        matchLen.value = "16";
+      } else if (/4\s*[×xх]\s*5/.test(text)) {
+        matchLen.value = "20";
+      }
+
+      // Счёт
+      const scoreMatch = text.match(/(\d+)\D+(\d+)/);
+      if (scoreMatch) {
+        const s1 = parseInt(scoreMatch[1],10);
+        const s2 = parseInt(scoreMatch[2],10);
+        const totalPoints = s1+s2;
+        tempoNow.value = (totalPoints/14).toFixed(2);
+      }
+
+      // Линия букмекера
+      const lineMatch = text.match(/(?:ТМ|ТБ)\s*\(?([\d\.]+)/i);
+      if (lineMatch) {
+        bookLine.value = lineMatch[1];
+      }
+
+      // Четверть и время
+      const quarterMatch = text.match(/(\d+)[-я]+\s+четверть/i);
+      const timeMatch = text.match(/(\d{1,2}):(\d{2})/);
+      if (quarterMatch && timeMatch) {
+        const quarter = parseInt(quarterMatch[1], 10);
+        const mins = parseInt(timeMatch[1], 10);
+        const secs = parseInt(timeMatch[2], 10);
+        let totalGame = num(matchLen.value);
+        if(totalGame <= 0) totalGame = 48;
+        const quarterLen = totalGame/4;
+        const played = (quarter-1)*quarterLen + (quarterLen - mins - secs/60);
+        const progress = Math.min(100,(played/totalGame)*100);
+        progressPct.value = progress.toFixed(1);
+      }
+      calculate();
+    } catch(err){
+      console.error(err);
+      status.textContent="Ошибка распознавания ❌";
+    }
+  });
+
+  calculate();
+})();
+</script>
+</body>
+</html>
