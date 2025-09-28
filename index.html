@@ -2,7 +2,6 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<!-- Исправленный метатег viewport для запрета масштабирования -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Quick Totals — калькулятор тотала по темпу</title>
 <style>
@@ -18,9 +17,9 @@
   html,body{
     height:100%; margin:0; 
     background: var(--bg); 
-    color: var(--text-color); /* Используем переменную для цвета текста */
+    color: var(--text-color); 
     transition: background 0.3s, color 0.3s;
-    -webkit-text-size-adjust: 100%; /* Предотвращает изменение размера текста на iOS */
+    -webkit-text-size-adjust: 100%;
   }
   .wrap{max-width:100%; margin:0 auto; padding:12px; box-sizing:border-box;}
   header{display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;}
@@ -36,8 +35,7 @@
     width:100%; padding:10px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); 
     background:var(--glass); color:inherit; font-size:16px; box-sizing:border-box;
     -webkit-appearance: none; appearance: none;
-    /* Улучшения для iOS */
-    -webkit-tap-highlight-color: transparent; /* Убирает подсветку при касании на iOS */
+    -webkit-tap-highlight-color: transparent;
   }
   .small{font-size:11px; color:var(--muted); margin-top:4px;}
   .result{background:var(--glass); border-radius:8px; padding:10px; margin-top:8px;}
@@ -45,7 +43,7 @@
   .muted{color:var(--muted); font-size:12px;}
   .grid{display:grid; grid-template-columns:1fr; gap:8px;}
   .btn{
-    padding:12px; /* Увеличиваем отступы для лучшего касания */
+    padding:12px; 
     border-radius:6px; 
     background:var(--accent); 
     color:white; 
@@ -54,9 +52,8 @@
     cursor:pointer; 
     width:100%; 
     margin-bottom:6px;
-    /* Улучшения для мобильных */
-    -webkit-tap-highlight-color: rgba(0,0,0,0.1); /* Легкая подсветка при касании */
-    min-height: 44px; /* Минимальная высота для удобного касания на iOS */
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1); 
+    min-height: 44px;
   }
   .btn.secondary{background:transparent; border:1px solid var(--muted); color:var(--muted);}
   .scenario{padding:8px; border-radius:6px; background:var(--glass);}
@@ -66,7 +63,6 @@
   .inline{display:flex; gap:6px; align-items:center;}
   input[type="range"]{
     width:100%;
-    /* Улучшения для ползунка на iOS */
     -webkit-appearance: none;
     height: 6px;
     border-radius: 3px;
@@ -88,27 +84,19 @@
     background:var(--card); 
     font-size:18px; 
     cursor:pointer;
-    min-height: 44px; /* Минимальная высота для удобного касания */
+    min-height: 44px; 
   }
   .keyboard button:active{background:var(--accent); color:white;}
   .keyboard-container{display:none; position:fixed; bottom:0; left:0; right:0; background:var(--card); padding:10px; box-shadow:0 -2px 10px rgba(0,0,0,0.1); z-index:100;}
   
-  /* Специальные стили для мобильных устройств */
   @media (max-width: 520px) {
-    .wrap {
-      padding: 10px;
-    }
-    .card {
-      padding: 10px;
-    }
+    .wrap { padding: 10px; }
+    .card { padding: 10px; }
     input[type="number"], input[type="text"], select {
-      padding: 12px; /* Увеличиваем отступы для удобства на мобильных */
-      font-size: 16px; /* Минимальный размер для предотвращения масштабирования на iOS */
+      padding: 12px; 
+      font-size: 16px; 
     }
-    .btn {
-      padding: 14px; /* Увеличиваем отступы кнопок */
-    }
-    /* Улучшения для элементов формы на iOS */
+    .btn { padding: 14px; }
     select {
       background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%23666' d='M2 0L0 2h4zm0 5L0 3h4z'/></svg>");
       background-repeat: no-repeat;
@@ -133,7 +121,6 @@
     <p>Быстрый прикид для лайв-решения: сравни свой прогноз с линией букмекера.</p>
   </header>
 
-  <!-- Блок загрузки скрина -->
   <div class="card">
     <label>Загрузить скриншот</label>
     <input type="file" id="upload" accept="image/*">
@@ -244,16 +231,13 @@
   <footer>Сделано для быстрой оценки. Ответственность за ставки — на вас.</footer>
 </div>
 
-<!-- Подключаем Tesseract.js -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v5.0.0/dist/tesseract.min.js"></script>
 <script>
 (function(){
-  // Функция переключения темы
   function toggleTheme() {
     const body = document.body;
     const isLight = body.classList.contains('light-theme');
     const themeToggle = document.getElementById('themeToggle');
-    
     if (isLight) {
       body.classList.remove('light-theme');
       themeToggle.textContent = 'Светлая тема';
@@ -264,12 +248,9 @@
       localStorage.setItem('theme', 'light');
     }
   }
-  
-  // Инициализация темы из localStorage
   function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     const themeToggle = document.getElementById('themeToggle');
-    
     if (savedTheme === 'light') {
       document.body.classList.add('light-theme');
       themeToggle.textContent = 'Темная тема';
@@ -278,18 +259,11 @@
       themeToggle.textContent = 'Светлая тема';
     }
   }
-  
-  // Инициализация при загрузке
   document.addEventListener('DOMContentLoaded', function() {
     initTheme();
-    
-    // Обработчик переключения темы
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-    
-    // Обработчик для кастомной длины матча
     const matchLen = document.getElementById('matchLen');
     const customLen = document.getElementById('customLen');
-    
     matchLen.addEventListener('change', function() {
       if (this.value === 'custom') {
         customLen.style.display = 'block';
@@ -367,69 +341,82 @@
       }
       bookCompare.textContent = verdict;
     } else {
-      bookCompare.textContent = 'Линия: не указана.';
+      bookCompare.textContent = 'Линия: —';
     }
   }
 
   document.getElementById('calcBtn').addEventListener('click', calculate);
-  weight.addEventListener('input', ()=> wtLabel.textContent = weight.value + '%');
+  weight.addEventListener('input', function(){
+    wtLabel.textContent = weight.value + '%';
+  });
+  document.getElementById('copyBtn').addEventListener('click', function(){
+    let text = 
+      `Ожидание по темпу: ${expNowEl.textContent}\n` +
+      `Ожидание по лиге: ${expLeagueEl.textContent}\n` +
+      `Смешанный прогноз: ${expMixedEl.textContent}\n` +
+      bookCompare.textContent;
+    navigator.clipboard.writeText(text);
+  });
 
-  // OCR загрузка
-  document.getElementById('upload').addEventListener('change', async (e)=>{
-    const file = e.target.files[0];
-    if (!file) return;
-    const status = document.getElementById('ocrStatus');
-    status.textContent = "Распознаём текст...";
+  const upload = document.getElementById('upload');
+  const ocrStatus = document.getElementById('ocrStatus');
+  upload.addEventListener('change', async function(){
+    const file = this.files[0];
+    if(!file) return;
+    ocrStatus.textContent = 'Распознаём...';
     try {
       const { data: { text } } = await Tesseract.recognize(file, 'rus+eng');
-      console.log("OCR text:", text);
-      status.textContent = "Распознавание завершено ✅";
-
-      // Автоопределение кибербаскета 4×4 или 4×5
-      if (/4\s*[×xх]\s*4/.test(text)) {
-        matchLen.value = "16";
-      } else if (/4\s*[×xх]\s*5/.test(text)) {
-        matchLen.value = "20";
-      }
-
-      // Счёт
-      const scoreMatch = text.match(/(\d+)\D+(\d+)/);
-      if (scoreMatch) {
-        const s1 = parseInt(scoreMatch[1],10);
-        const s2 = parseInt(scoreMatch[2],10);
-        const totalPoints = s1+s2;
-        tempoNow.value = (totalPoints/14).toFixed(2);
-      }
-
-      // Линия букмекера
-      const lineMatch = text.match(/(?:ТМ|ТБ)\s*\(?([\d\.]+)/i);
-      if (lineMatch) {
-        bookLine.value = lineMatch[1];
-      }
-
-      // Четверть и время
-      const quarterMatch = text.match(/(\d+)[-я]+\s+четверть/i);
-      const timeMatch = text.match(/(\d{1,2}):(\d{2})/);
-      if (quarterMatch && timeMatch) {
-        const quarter = parseInt(quarterMatch[1], 10);
-        const mins = parseInt(timeMatch[1], 10);
-        const secs = parseInt(timeMatch[2], 10);
-        let totalGame = num(matchLen.value);
-        if(totalGame <= 0) totalGame = 48;
-        const quarterLen = totalGame/4;
-        const played = (quarter-1)*quarterLen + (quarterLen - mins - secs/60);
-        const progress = Math.min(100,(played/totalGame)*100);
-        progressPct.value = progress.toFixed(1);
-      }
-      calculate();
+      ocrStatus.textContent = 'Готово. Извлечение данных...';
+      parseOCR(text);
     } catch(err){
       console.error(err);
-      status.textContent="Ошибка распознавания ❌";
+      ocrStatus.textContent = 'Ошибка OCR.';
     }
   });
 
-  // Инициализация расчета при загрузке
-  calculate();
+  function parseOCR(text){
+    console.log("OCR text:", text);
+
+    // Формат матча (поддержка "x" и "×")
+    if(/4\s*[x×]\s*4/.test(text)){
+      matchLen.value = '16';
+    } else if(/4\s*[x×]\s*5/.test(text)){
+      matchLen.value = '20';
+    }
+
+    // Время матча (четверть/половина)
+    let progress = null;
+    if(/(\d)[- ]?четв/i.test(text)){
+      const q = parseInt(RegExp.$1,10);
+      progress = (q-1)/4*100;
+    } else if(/(\d)[- ]?полов/i.test(text)){
+      const h = parseInt(RegExp.$1,10);
+      progress = (h-1)/2*100;
+    }
+    if(progress !== null) progressPct.value = progress;
+
+    // Счёт — берём только после названий команд
+    const scoreMatches = [...text.matchAll(/([A-Za-zА-Яа-яЁё]+)\s+(\d+)\s*[:\-]\s*(\d+)/g)];
+    if(scoreMatches.length > 0){
+      const last = scoreMatches[scoreMatches.length-1];
+      const a = parseInt(last[2],10);
+      const b = parseInt(last[3],10);
+      const totalPoints = a+b;
+      const minsPlayed = num(matchLen.value) * (num(progressPct.value)/100);
+      if(minsPlayed > 0){
+        tempoNow.value = r(totalPoints / minsPlayed);
+      }
+    }
+
+    // Линия букмекера
+    let lineMatch = text.match(/Т[БМ]\s*([0-9]+[.,]?\d*)/i);
+    if(lineMatch){
+      bookLine.value = lineMatch[1].replace(',','.');
+    }
+
+    ocrStatus.textContent = 'Данные заполнены из OCR.';
+  }
+
 })();
 </script>
 </body>
