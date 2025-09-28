@@ -3,10 +3,6 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon202.png">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BSK7">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Quick Totals — калькулятор тотала по темпу</title>
 <style>
   :root{
@@ -79,41 +75,6 @@
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
-  }
-  .keyboard{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:10px;}
-  .keyboard button{
-    height:44px; 
-    border-radius:6px; 
-    border:1px solid rgba(0,0,0,0.1); 
-    background:var(--card); 
-    font-size:18px; 
-    cursor:pointer;
-    min-height: 44px; 
-  }
-  .keyboard button:active{background:var(--accent); color:white;}
-  .keyboard-container{display:none; position:fixed; bottom:0; left:0; right:0; background:var(--card); padding:10px; box-shadow:0 -2px 10px rgba(0,0,0,0.1); z-index:100;}
-  
-  @media (max-width: 520px) {
-    .wrap { padding: 10px; }
-    .card { padding: 10px; }
-    input[type="number"], input[type="text"], select {
-      padding: 12px; 
-      font-size: 16px; 
-    }
-    .btn { padding: 14px; }
-    select {
-      background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%23666' d='M2 0L0 2h4zm0 5L0 3h4z'/></svg>");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      background-size: 10px;
-      padding-right: 30px;
-    }
-  }
-  
-  @media (min-width:520px){
-    .wrap{max-width:500px; padding:15px;}
-    .grid{grid-template-columns:1fr 1fr;}
-    .keyboard{display:none;}
   }
 </style>
 </head>
@@ -369,101 +330,55 @@
     if(!file) return;
     ocrStatus.textContent = 'Распознаём...';
     try {
-      const { data: { text } } = await Tesseract.recognize(file, 'rus+eng', {
-        tessedit_char_whitelist: '0123456789: x×абвгдежзийклмнопрстуфхцчшщъыьэюяabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()-. ',
-        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-        tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY
-      });
+      const { data: { text } } = await Tesseract.recognize(file, 'rus+eng');
       ocrStatus.textContent = 'Готово. Извлечение данных...';
-      console.log("Extracted OCR text:", text); // Для отладки
       parseOCR(text);
     } catch(err){
-      console.error("OCR Error:", err);
-      ocrStatus.textContent = 'Ошибка OCR: ' + err.message;
+      console.error(err);
+      ocrStatus.textContent = 'Ошибка OCR.';
     }
   });
 
   function parseOCR(text){
-    console.log("Processing OCR text:", text);
+    console.log("OCR text:", text);
 
     // Формат матча (поддержка "x" и "×")
     if(/4\s*[x×]\s*4/.test(text)){
-      matchLen.value = '16';
-    } else if(/4\s*[x×]\s*5/.test(text) || /2x10\s*мин/i.test(text)){
+      matchLen.value = '20'; // исправлено
+    } else if(/4\s*[x×]\s*5/.test(text)){
       matchLen.value = '20';
     }
 
-    // Определение части матча и времени
-    let partNum = null;
-    let numParts = 4; // по умолчанию четверти
-    const quarterMatch = text.match(/(\d+)\s*(четв|чверт|четверт|кварт|quarter)/i);
-    if (quarterMatch) {
-      partNum = parseInt(quarterMatch[1], 10);
-      numParts = 4;
-    } else {
-      const halfMatch = text.match(/(\d+)\s*(полов|half)/i);
-      if (halfMatch) {
-        partNum = parseInt(halfMatch[1], 10);
-        numParts = 2;
+    // Время матча (mm:ss)
+    let tm = text.match(/(\d{1,2})\s*:\s*(\d{2})/);
+    if(tm){
+      let mm = parseInt(tm[1]);
+      let ss = parseInt(tm[2]);
+      let total = num(matchLen.value);
+      if(total>0){
+        let elapsed = mm + ss/60;
+        let pct = 100*elapsed/total;
+        progressPct.value = Math.min(100, Math.round(pct));
       }
     }
 
-    let timeLeftMin = 0;
-    let timeLeftSec = 0;
-    const timeMatch = text.match(/(?:время|time|осталось|clock)\s*[:\-]?\s*(\d{1,2}):(\d{2})/i) || text.match(/(\d{1,2}):(\d{2})/i);
-    if (timeMatch) {
-      timeLeftMin = parseInt(timeMatch[1], 10);
-      timeLeftSec = parseInt(timeMatch[2], 10);
+    // Половина (исправлено)
+    if(/1\s*половина/i.test(text)){
+      progressPct.value = 25;
+    } else if(/2\s*половина/i.test(text)){
+      progressPct.value = 75;
     }
 
-    // Расчет прогресса
-    if (partNum !== null || timeMatch) {
-      let totalMinutes = num(matchLen.value);
-      if (totalMinutes <= 0) totalMinutes = 20; // По умолчанию 20 для 2x10
-      if (timeMatch) {
-        const periodLength = totalMinutes / numParts;
-        const timeLeft = timeLeftMin + timeLeftSec / 60;
-        const elapsedInPeriod = periodLength - timeLeft;
-        let minsPlayed = 0;
-        if (partNum) {
-          minsPlayed = (partNum - 1) * periodLength + elapsedInPeriod;
-        } else {
-          minsPlayed = totalMinutes - (timeLeftMin + timeLeftSec / 60);
-        }
-        const progress = (minsPlayed / totalMinutes) * 100;
-        progressPct.value = r(progress);
-      }
+    // Счёт (исправленный regex)
+    let sc = text.match(/(\d+)\s*[:\- ]\s*(\d+)/);
+    if(sc){
+      let p1 = parseInt(sc[1]);
+      let p2 = parseInt(sc[2]);
+      tempoNow.value = r((p1+p2)/ (num(matchLen.value)*(num(progressPct.value)/100)));
     }
 
-    // Счёт (улучшенное извлечение)
-    const scoreLines = text.split('\n').filter(line => /\d+\s+\d+/.test(line)); // Ищем строки с двумя числами
-    if (scoreLines.length > 0) {
-      const lastScoreLine = scoreLines[scoreLines.length - 1];
-      const scoreMatch = lastScoreLine.match(/(\d+)\s+(\d+)/); // Два числа через пробел
-      if (scoreMatch) {
-        const team1Score = parseInt(scoreMatch[1], 10);
-        const team2Score = parseInt(scoreMatch[2], 10);
-        console.log("Extracted scores - Team 1:", team1Score, "Team 2:", team2Score);
-        const totalPoints = team1Score + team2Score;
-        const minsPlayed = num(matchLen.value) * (num(progressPct.value)/100);
-        if (minsPlayed > 0) {
-          tempoNow.value = r(totalPoints / minsPlayed);
-        }
-      } else {
-        console.log("No valid score format found in:", lastScoreLine);
-      }
-    }
-
-    // Линия букмекера
-    let lineMatch = text.match(/Т[БМ]\s*\(?(\d+[.,]?\d*)\)?/i);
-    if(lineMatch){
-      bookLine.value = lineMatch[1].replace(',', '.');
-    }
-
-    ocrStatus.textContent = 'Данные заполнены из OCR.';
-    calculate(); // Автоматически пересчитать после OCR
+    ocrStatus.textContent = 'OCR данные подставлены, проверьте поля.';
   }
-
 })();
 </script>
 </body>
