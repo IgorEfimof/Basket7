@@ -369,43 +369,81 @@
     if(!file) return;
     ocrStatus.textContent = 'Распознаём...';
     try {
-      const { data: { text } } = await Tesseract.recognize(file, 'rus+eng');
+      const { data: { text } } = await Tesseract.recognize(file, 'rus+eng', {
+        tessedit_char_whitelist: '0123456789: x×абвгдежзийклмнопрстуфхцчшщъыьэюяabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()-. ',
+        // Настройки для улучшения качества
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+        tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY
+      });
       ocrStatus.textContent = 'Готово. Извлечение данных...';
+      console.log("Extracted OCR text:", text); // Для отладки
       parseOCR(text);
     } catch(err){
-      console.error(err);
-      ocrStatus.textContent = 'Ошибка OCR.';
+      console.error("OCR Error:", err);
+      ocrStatus.textContent = 'Ошибка OCR: ' + err.message;
     }
   });
 
   function parseOCR(text){
-    console.log("OCR text:", text);
+    console.log("Processing OCR text:", text);
 
     // Формат матча (поддержка "x" и "×")
     if(/4\s*[x×]\s*4/.test(text)){
       matchLen.value = '16';
-    } else if(/4\s*[x×]\s*5/.test(text)){
+    } else if(/4\s*[x×]\s*5/.test(text) || /2x10\s*мин/i.test(text)){
       matchLen.value = '20';
     }
 
-    // Время матча (четверть/половина)
-    let progress = null;
-    if(/(\d)[- ]?четв/i.test(text)){
-      const q = parseInt(RegExp.$1,10);
-      progress = (q-1)/4*100;
-    } else if(/(\d)[- ]?полов/i.test(text)){
-      const h = parseInt(RegExp.$1,10);
-      progress = (h-1)/2*100;
+    // Определение части матча и времени
+    let partNum = null;
+    let numParts = 4; // по умолчанию четверти
+    const quarterMatch = text.match(/(\d+)\s*(четв|чверт|четверт|кварт|quarter)/i);
+    if (quarterMatch) {
+      partNum = parseInt(quarterMatch[1], 10);
+      numParts = 4;
+    } else {
+      const halfMatch = text.match(/(\d+)\s*(полов|half)/i);
+      if (halfMatch) {
+        partNum = parseInt(halfMatch[1], 10);
+        numParts = 2;
+      }
     }
-    if(progress !== null) progressPct.value = progress;
 
-    // Счёт — берём только после названий команд
-    const scoreMatches = [...text.matchAll(/([A-Za-zА-Яа-яЁё]+)\s+(\d+)\s*[:\-]\s*(\d+)/g)];
+    let timeLeftMin = 0;
+    let timeLeftSec = 0;
+    const timeMatch = text.match(/(?:время|time|осталось|clock)\s*[:\-]?\s*(\d{1,2}):(\d{2})/i) || text.match(/(\d{1,2}):(\d{2})/i);
+    if (timeMatch) {
+      timeLeftMin = parseInt(timeMatch[1], 10);
+      timeLeftSec = parseInt(timeMatch[2], 10);
+    }
+
+    // Расчет прогресса
+    if (partNum !== null || timeMatch) {
+      let totalMinutes = num(matchLen.value);
+      if (totalMinutes <= 0) totalMinutes = 20; // По умолчанию 20 для 2x10
+      if (timeMatch) {
+        const periodLength = totalMinutes / numParts;
+        const timeLeft = timeLeftMin + timeLeftSec / 60;
+        const elapsedInPeriod = periodLength - timeLeft;
+        let minsPlayed = 0;
+        if (partNum) {
+          minsPlayed = (partNum - 1) * periodLength + elapsedInPeriod;
+        } else {
+          // Если нет части, считаем по общему времени
+          minsPlayed = totalMinutes - (timeLeftMin + timeLeftSec / 60);
+        }
+        const progress = (minsPlayed / totalMinutes) * 100;
+        progressPct.value = r(progress);
+      }
+    }
+
+    // Счёт
+    const scoreMatches = [...text.matchAll(/(\d+)\s*[:\-]\s*(\d+)/g)]; // Упрощаем, ищем только числа
     if(scoreMatches.length > 0){
       const last = scoreMatches[scoreMatches.length-1];
-      const a = parseInt(last[2],10);
-      const b = parseInt(last[3],10);
-      const totalPoints = a+b;
+      const a = parseInt(last[1],10);
+      const b = parseInt(last[2],10);
+      const totalPoints = a + b;
       const minsPlayed = num(matchLen.value) * (num(progressPct.value)/100);
       if(minsPlayed > 0){
         tempoNow.value = r(totalPoints / minsPlayed);
@@ -413,12 +451,13 @@
     }
 
     // Линия букмекера
-    let lineMatch = text.match(/Т[БМ]\s*([0-9]+[.,]?\d*)/i);
+    let lineMatch = text.match(/Т[БМ]\s*\(?(\d+[.,]?\d*)\)?/i);
     if(lineMatch){
-      bookLine.value = lineMatch[1].replace(',','.');
+      bookLine.value = lineMatch[1].replace(',', '.');
     }
 
     ocrStatus.textContent = 'Данные заполнены из OCR.';
+    calculate(); // Автоматически пересчитать после OCR
   }
 
 })();
