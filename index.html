@@ -100,6 +100,20 @@
       color: #1a365d;
       margin-bottom: 15px;
     }
+    .error {
+      background: #fed7d7;
+      color: #c53030;
+      padding: 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+    }
+    .success {
+      background: #c6f6d5;
+      color: #22543d;
+      padding: 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -152,7 +166,7 @@
     if (!f) return;
     const url = URL.createObjectURL(f);
     preview.src = url;
-    currentImage = f; // Сохраняем файл, а не URL
+    currentImage = f;
     runBtn.disabled = false;
     status.textContent = 'Готово. Нажми "Распознать и рассчитать"';
     rawTextEl.textContent = 'Текст появится после распознавания...';
@@ -167,7 +181,6 @@
     rawTextEl.textContent = '...';
 
     try {
-      // Используем актуальный API Tesseract.js v5
       status.textContent = 'Распознаю изображение...';
       
       const { data: { text } } = await Tesseract.recognize(
@@ -188,7 +201,6 @@
       const parsed = parseMatchText(text);
       renderParsed(parsed);
       
-      // Добавляем расчет тоталов
       calculateAndDisplayTotals(parsed);
 
       status.textContent = 'Готово';
@@ -209,12 +221,19 @@
       title: null, 
       timeBlock: null, 
       teams: [],
-      format: '4x5' // по умолчанию
+      format: '4x5'
     };
 
     // Определяем формат игры
     const joined = lines.join(' | ');
-    if (joined.includes('4x4') || joined.includes('4×4') || /4\s*[x×]\s*4/.test(joined)) {
+    
+    // Поиск формата по шаблону (4x12 мин) или (4х12 мин)
+    const formatMatch = joined.match(/\((\d+)\s*[xх]\s*(\d+)\s*мин\)/i);
+    if (formatMatch) {
+      const quarters = parseInt(formatMatch[1]);
+      const minutes = parseInt(formatMatch[2]);
+      result.format = `${quarters}x${minutes}`;
+    } else if (joined.includes('4x4') || joined.includes('4×4') || /4\s*[x×]\s*4/.test(joined)) {
       result.format = '4x4';
     } else if (joined.includes('4x5') || joined.includes('4×5') || /4\s*[x×]\s*5/.test(joined)) {
       result.format = '4x5';
@@ -222,7 +241,7 @@
 
     // Ищем заголовок
     for (const l of lines) {
-      if (/NBA|Кибер|ESports|ESport|ESportsBattle|Кибербаскетбол/i.test(l)) {
+      if (/NBA|Кибер|ESports|ESport|ESportsBattle|Кибербаскетбол|Баскетбол|IPBL/i.test(l)) {
         result.title = l;
         break;
       }
@@ -250,46 +269,97 @@
       }
     }
 
-    // Простой парсинг для формата как в примере
-    // Ищем строки с названиями команд и счетами
+    // Поиск строк с очками команд
+    let timeLineIndex = -1;
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      if (lines[i].includes('четверть') && lines[i].match(/\d{1,2}:\d{2}/)) {
+        timeLineIndex = i;
+        break;
+      }
+    }
+    
+    if (timeLineIndex !== -1) {
+      const potentialScoreLines = lines.slice(timeLineIndex + 1);
       
-      // Ищем строку с временем и четвертью
-      if (!result.timeBlock && line.includes('четверть')) {
-        result.timeBlock = { raw: line };
-        
-        // Пытаемся извлечь детали
-        const quarterMatch = line.match(/(\d)-я четверть/);
-        if (quarterMatch) {
-          result.timeBlock.quarter = parseInt(quarterMatch[1]);
+      const scoreLines = [];
+      for (const line of potentialScoreLines) {
+        const numbers = line.match(/\d+/g);
+        if (numbers && numbers.length >= 3) {
+          const nums = numbers.map(n => parseInt(n, 10));
+          
+          if (nums.every(n => n >= 0 && n <= 200) && 
+              nums.length >= 3 && nums.length <= 4) {
+            
+            const nameMatch = line.split(/\d/)[0].trim();
+            let teamName = nameMatch;
+            
+            teamName = teamName.replace(/[=<>()]/g, '').trim();
+            
+            if (teamName.length < 2) {
+              const lineIndex = lines.indexOf(line);
+              if (lineIndex > 0) {
+                const prevLine = lines[lineIndex - 1];
+                if (!prevLine.match(/\d/) && !prevLine.includes('четверть')) {
+                  teamName = prevLine.replace(/[=<>()]/g, '').trim();
+                }
+              }
+            }
+            
+            if (!teamName || teamName.length < 2) {
+              teamName = `Команда ${scoreLines.length + 1}`;
+            }
+            
+            // ИСПРАВЛЕНИЕ: ВСЕГДА СУММИРУЕМ ОЧКИ ПО ЧЕТВЕРТЯМ ДЛЯ ОБЩЕГО СЧЕТА
+            let perQuarter, total;
+            if (nums.length === 3) {
+              perQuarter = nums;
+              total = nums.reduce((sum, num) => sum + num, 0); // Сумма трех четвертей
+            } else {
+              perQuarter = nums.slice(0, 3);
+              total = nums.slice(0, 3).reduce((sum, num) => sum + num, 0); // Сумма первых трех чисел
+            }
+            
+            scoreLines.push({
+              name: teamName,
+              perQuarter: perQuarter,
+              total: total,
+              raw: line
+            });
+          }
         }
         
-        const timeMatch = line.match(/(\d{1,2}:\d{2})/g);
-        if (timeMatch && timeMatch.length >= 2) {
-          result.timeBlock.clock = timeMatch[0];
-          result.timeBlock.timeRemaining = timeMatch[1];
+        if (scoreLines.length >= 2) break;
+      }
+      
+      result.teams = scoreLines;
+    }
+    
+    // Если не нашли команды через временную строку, пробуем альтернативный метод
+    if (result.teams.length < 2) {
+      const allNumbers = [];
+      for (const line of lines) {
+        const numbers = line.match(/\d+/g);
+        if (numbers && numbers.length >= 3) {
+          const nums = numbers.map(n => parseInt(n, 10));
+          if (nums.every(n => n >= 0 && n <= 200)) {
+            allNumbers.push(nums);
+          }
         }
       }
       
-      // Ищем команды и счета
-      if (line.match(/[А-Яа-яA-Za-z]/) && !line.includes('четверть') && !line.includes('NBA') && !line.includes('Кибер')) {
-        // Это может быть название команды
-        const nextLine = i + 1 < lines.length ? lines[i + 1] : '';
-        const numbersInNextLine = (nextLine.match(/\d+/g) || []).map(n => parseInt(n));
-        
-        if (numbersInNextLine.length >= 3) {
-          // Следующая строка содержит счет
-          const teamData = {
-            name: line,
-            perQuarter: numbersInNextLine.slice(0, -1),
-            total: numbersInNextLine[numbersInNextLine.length - 1],
-            raw: line + ' / ' + nextLine
-          };
-          
-          result.teams.push(teamData);
-          i++; // Пропускаем следующую строку, так как мы ее уже обработали
-        }
+      if (allNumbers.length >= 2) {
+        result.teams = [
+          { 
+            name: 'Команда 1', 
+            perQuarter: allNumbers[0].slice(0, 3), 
+            total: allNumbers[0].slice(0, 3).reduce((sum, num) => sum + num, 0) // Сумма первых трех чисел
+          },
+          { 
+            name: 'Команда 2', 
+            perQuarter: allNumbers[1].slice(0, 3), 
+            total: allNumbers[1].slice(0, 3).reduce((sum, num) => sum + num, 0) // Сумма первых трех чисел
+          }
+        ];
       }
     }
 
@@ -310,12 +380,20 @@
     }
 
     const formatDiv = document.createElement('div');
-    formatDiv.innerHTML = `<strong>Формат игры:</strong> ${parsed.format === '4x4' ? '4 четверти по 4 минуты' : '4 четверти по 5 минут'}`;
+    const formatParts = parsed.format.split('x');
+    const quarters = formatParts[0];
+    const minutes = formatParts[1];
+    formatDiv.innerHTML = `<strong>Формат игры:</strong> ${quarters} четверти по ${minutes} минут`;
     parsedEl.appendChild(formatDiv);
 
     if (parsed.teams && parsed.teams.length>0) {
+      const successDiv = document.createElement('div');
+      successDiv.className = 'success';
+      successDiv.textContent = `Успешно распознано ${parsed.teams.length} команд`;
+      parsedEl.appendChild(successDiv);
+
       const t = document.createElement('div');
-      t.innerHTML = '<strong>Команды:</strong>';
+      t.innerHTML = '<strong>Результаты:</strong>';
       parsedEl.appendChild(t);
 
       const table = document.createElement('table');
@@ -326,7 +404,7 @@
       for (const team of parsed.teams) {
         const tr = document.createElement('tr');
         const nameTd = document.createElement('td');
-        nameTd.textContent = team.name || '(не найдено)';
+        nameTd.textContent = team.name;
         const pqTd = document.createElement('td');
         pqTd.textContent = (team.perQuarter && team.perQuarter.length>0) ? team.perQuarter.join(' + ') : '-';
         const totalTd = document.createElement('td');
@@ -337,9 +415,10 @@
       table.appendChild(tbody);
       parsedEl.appendChild(table);
     } else {
-      const p = document.createElement('div');
-      p.textContent = 'Не удалось найти строки с командами и числами.';
-      parsedEl.appendChild(p);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error';
+      errorDiv.textContent = 'Не удалось найти результаты команд. Проверьте качество изображения.';
+      parsedEl.appendChild(errorDiv);
     }
 
     // raw lines (for debugging)
@@ -356,7 +435,7 @@
     
     // Проверяем, что у нас есть достаточно данных
     if (!parsed.teams || parsed.teams.length < 2) {
-      calculationsEl.innerHTML = '<div class="prediction">Недостаточно данных для расчета тоталов</div>';
+      calculationsEl.innerHTML = '<div class="error">Недостаточно данных для расчета тоталов</div>';
       return;
     }
     
@@ -365,8 +444,9 @@
     const totalScore = (team1.total || 0) + (team2.total || 0);
     
     // Определяем параметры игры
-    const quarterLength = parsed.format === '4x4' ? 4 : 5;
-    const totalQuarters = 4;
+    const formatParts = parsed.format.split('x');
+    const quarterLength = parseInt(formatParts[1]) || 5;
+    const totalQuarters = parseInt(formatParts[0]) || 4;
     const totalGameMinutes = quarterLength * totalQuarters;
     
     // Рассчитываем сыгранное время
@@ -398,7 +478,7 @@
     }
     
     // Рассчитываем темп игры
-    const tempo = minutesPlayed > 0 ? totalScore / minutesPlayed : 2.0; // 2.0 как значение по умолчанию
+    const tempo = minutesPlayed > 0 ? totalScore / minutesPlayed : 2.0;
     
     // Прогнозируем тоталы
     const projectedRemainingPoints = Math.round(tempo * minutesRemaining);
