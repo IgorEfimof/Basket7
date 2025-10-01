@@ -118,6 +118,44 @@
       border-radius: 6px;
       margin: 10px 0;
     }
+    .edit-section {
+      background: #fffaf0;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+      border-left: 4px solid #ed8936;
+    }
+    .edit-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+    .edit-input {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 60px;
+    }
+    .edit-team {
+      margin-bottom: 15px;
+    }
+    .edit-team-name {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .edit-scores {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .edit-format {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
   </style>
 </head>
 <body>
@@ -146,6 +184,11 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Ручная корректировка данных</div>
+      <div id="manualEdit"></div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Расчет тоталов</div>
       <div id="calculations"></div>
     </div>
@@ -161,9 +204,11 @@
   const status = document.getElementById('status');
   const rawTextEl = document.getElementById('rawText');
   const parsedEl = document.getElementById('parsed');
+  const manualEditEl = document.getElementById('manualEdit');
   const calculationsEl = document.getElementById('calculations');
 
   let currentImage = null;
+  let currentParsedData = null;
 
   fileInput.addEventListener('change', e => {
     const f = e.target.files[0];
@@ -175,6 +220,7 @@
     status.textContent = 'Готово. Нажми "Распознать и рассчитать"';
     rawTextEl.textContent = 'Текст появится после распознавания...';
     parsedEl.innerHTML = '';
+    manualEditEl.innerHTML = '';
     calculationsEl.innerHTML = '';
   });
 
@@ -203,7 +249,9 @@
       status.textContent = 'Парсинг распознанного текста...';
 
       const parsed = parseMatchText(text);
+      currentParsedData = parsed;
       renderParsed(parsed);
+      renderManualEdit(parsed);
       
       calculateAndDisplayTotals(parsed);
 
@@ -225,7 +273,9 @@
       title: null, 
       timeBlock: null, 
       teams: [],
-      format: '4x5'
+      format: '4x5',
+      quarters: 4,
+      minutesPerQuarter: 5
     };
 
     // Определяем формат игры
@@ -237,10 +287,14 @@
       const quarters = parseInt(formatMatch[1]);
       const minutes = parseInt(formatMatch[2]);
       result.format = `${quarters}x${minutes}`;
+      result.quarters = quarters;
+      result.minutesPerQuarter = minutes;
     } else if (joined.includes('4x4') || joined.includes('4×4') || /4\s*[x×]\s*4/.test(joined)) {
       result.format = '4x4';
+      result.minutesPerQuarter = 4;
     } else if (joined.includes('4x5') || joined.includes('4×5') || /4\s*[x×]\s*5/.test(joined)) {
       result.format = '4x5';
+      result.minutesPerQuarter = 5;
     }
 
     // Ищем заголовок
@@ -433,6 +487,172 @@
     parsedEl.appendChild(rawBlock);
   }
 
+  // Функция отображения формы для ручного редактирования
+  function renderManualEdit(parsed) {
+    manualEditEl.innerHTML = '';
+    
+    const editSection = document.createElement('div');
+    editSection.className = 'edit-section';
+    
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = 'Ручная корректировка данных';
+    editSection.appendChild(title);
+    
+    // Формат игры
+    const formatDiv = document.createElement('div');
+    formatDiv.className = 'edit-format';
+    formatDiv.innerHTML = `
+      <label><strong>Формат игры:</strong></label>
+      <input type="number" id="editQuarters" class="edit-input" min="1" max="10" value="${parsed.quarters || 4}"> четверти по 
+      <input type="number" id="editMinutes" class="edit-input" min="1" max="20" value="${parsed.minutesPerQuarter || 5}"> минут
+    `;
+    editSection.appendChild(formatDiv);
+    
+    // Команды
+    const teamsDiv = document.createElement('div');
+    teamsDiv.innerHTML = '<strong>Счет команд:</strong>';
+    editSection.appendChild(teamsDiv);
+    
+    for (let i = 0; i < Math.max(2, parsed.teams.length); i++) {
+      const team = parsed.teams[i] || { name: `Команда ${i+1}`, perQuarter: [0, 0, 0], total: 0 };
+      
+      const teamDiv = document.createElement('div');
+      teamDiv.className = 'edit-team';
+      
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'edit-team-name';
+      nameDiv.innerHTML = `<label>Название команды ${i+1}:</label>`;
+      
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = team.name;
+      nameInput.id = `teamName${i}`;
+      nameInput.style.width = '200px';
+      nameInput.style.marginLeft = '10px';
+      nameDiv.appendChild(nameInput);
+      teamDiv.appendChild(nameDiv);
+      
+      const scoresDiv = document.createElement('div');
+      scoresDiv.className = 'edit-scores';
+      scoresDiv.innerHTML = '<label>Очки по четвертям:</label>';
+      
+      for (let q = 0; q < 3; q++) {
+        const scoreInput = document.createElement('input');
+        scoreInput.type = 'number';
+        scoreInput.min = '0';
+        scoreInput.max = '200';
+        scoreInput.className = 'edit-input';
+        scoreInput.value = team.perQuarter && team.perQuarter[q] ? team.perQuarter[q] : 0;
+        scoreInput.id = `team${i}q${q}`;
+        scoresDiv.appendChild(scoreInput);
+        
+        if (q < 2) {
+          const plus = document.createElement('span');
+          plus.textContent = '+';
+          scoresDiv.appendChild(plus);
+        }
+      }
+      
+      const totalSpan = document.createElement('span');
+      totalSpan.id = `team${i}Total`;
+      totalSpan.style.fontWeight = 'bold';
+      totalSpan.style.marginLeft = '10px';
+      totalSpan.textContent = `= ${team.total || 0}`;
+      scoresDiv.appendChild(totalSpan);
+      
+      teamDiv.appendChild(scoresDiv);
+      editSection.appendChild(teamDiv);
+    }
+    
+    // Кнопка применения изменений
+    const applyButton = document.createElement('button');
+    applyButton.textContent = 'Применить изменения';
+    applyButton.style.marginTop = '15px';
+    applyButton.onclick = applyManualEdits;
+    editSection.appendChild(applyButton);
+    
+    manualEditEl.appendChild(editSection);
+    
+    // Добавляем обработчики для автоматического пересчета суммы
+    for (let i = 0; i < Math.max(2, parsed.teams.length); i++) {
+      for (let q = 0; q < 3; q++) {
+        const input = document.getElementById(`team${i}q${q}`);
+        input.addEventListener('input', updateTeamTotal);
+      }
+    }
+  }
+
+  // Функция обновления общей суммы очков команды
+  function updateTeamTotal() {
+    const teamIndex = this.id.match(/team(\d+)q/)[1];
+    let total = 0;
+    
+    for (let q = 0; q < 3; q++) {
+      const input = document.getElementById(`team${teamIndex}q${q}`);
+      total += parseInt(input.value) || 0;
+    }
+    
+    const totalSpan = document.getElementById(`team${teamIndex}Total`);
+    totalSpan.textContent = `= ${total}`;
+  }
+
+  // Функция применения ручных изменений
+  function applyManualEdits() {
+    if (!currentParsedData) return;
+    
+    // Обновляем формат игры
+    const quarters = parseInt(document.getElementById('editQuarters').value) || 4;
+    const minutes = parseInt(document.getElementById('editMinutes').value) || 5;
+    
+    currentParsedData.quarters = quarters;
+    currentParsedData.minutesPerQuarter = minutes;
+    currentParsedData.format = `${quarters}x${minutes}`;
+    
+    // Обновляем данные команд
+    for (let i = 0; i < 2; i++) {
+      const nameInput = document.getElementById(`teamName${i}`);
+      if (nameInput) {
+        if (!currentParsedData.teams[i]) {
+          currentParsedData.teams[i] = { name: '', perQuarter: [0, 0, 0], total: 0 };
+        }
+        currentParsedData.teams[i].name = nameInput.value;
+        
+        let total = 0;
+        const perQuarter = [];
+        for (let q = 0; q < 3; q++) {
+          const scoreInput = document.getElementById(`team${i}q${q}`);
+          const score = parseInt(scoreInput.value) || 0;
+          perQuarter.push(score);
+          total += score;
+        }
+        
+        currentParsedData.teams[i].perQuarter = perQuarter;
+        currentParsedData.teams[i].total = total;
+      }
+    }
+    
+    // Перерисовываем результаты парсинга
+    renderParsed(currentParsedData);
+    
+    // Пересчитываем тоталы
+    calculateAndDisplayTotals(currentParsedData);
+    
+    // Показываем сообщение об успехе
+    const successMsg = document.createElement('div');
+    successMsg.className = 'success';
+    successMsg.textContent = 'Изменения применены успешно!';
+    successMsg.style.marginTop = '10px';
+    manualEditEl.appendChild(successMsg);
+    
+    // Убираем сообщение через 3 секунды
+    setTimeout(() => {
+      if (successMsg.parentNode) {
+        successMsg.parentNode.removeChild(successMsg);
+      }
+    }, 3000);
+  }
+
   // Функция расчета и отображения тоталов
   function calculateAndDisplayTotals(parsed) {
     calculationsEl.innerHTML = '';
@@ -448,9 +668,8 @@
     const totalScore = (team1.total || 0) + (team2.total || 0);
     
     // Определяем параметры игры
-    const formatParts = parsed.format.split('x');
-    const quarterLength = parseInt(formatParts[1]) || 5;
-    const totalQuarters = parseInt(formatParts[0]) || 4;
+    const quarterLength = parsed.minutesPerQuarter || 5;
+    const totalQuarters = parsed.quarters || 4;
     const totalGameMinutes = quarterLength * totalQuarters;
     
     // Рассчитываем сыгранное время
