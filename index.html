@@ -316,6 +316,14 @@
             background: linear-gradient(90deg, var(--ai-color), #8e44ad);
         }
         
+        .recommendation.positive {
+            background: linear-gradient(90deg, var(--positive-color), #2ecc71);
+        }
+        
+        .recommendation.negative {
+            background: linear-gradient(90deg, var(--negative-color), #c0392b);
+        }
+        
         .recommendation-title {
             font-size: 1.1rem;
             margin-bottom: 8px;
@@ -939,6 +947,19 @@
             color: var(--negative-color);
         }
         
+        .ai-corrected-total {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .ai-recommendation-details {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
         @media (max-width: 768px) {
             #screenshot-preview {
                 max-height: 60vh;
@@ -960,6 +981,10 @@
             .action-buttons {
                 flex-direction: column;
             }
+            
+            .ai-corrected-total {
+                font-size: 2rem;
+            }
         }
         
         @media (max-width: 480px) {
@@ -978,6 +1003,10 @@
             
             .feedback-btn {
                 min-width: 100%;
+            }
+            
+            .ai-corrected-total {
+                font-size: 1.8rem;
             }
         }
     </style>
@@ -1298,25 +1327,14 @@
                     </div>
                 </div>
                 
-                <div class="recommendation" id="standard-recommendation">
-                    <div class="recommendation-title">Рекомендуемая ставка</div>
-                    <div class="recommendation-desc" id="recommendation-text">Загрузите скриншот или введите данные</div>
-                    
-                    <div class="confidence">
-                        <span class="confidence-text">Уверенность:</span>
-                        <div class="confidence-bar">
-                            <div class="confidence-fill" id="confidence-bar" style="width: 0%"></div>
-                        </div>
-                        <span id="confidence-value" style="margin-left: 8px;">0%</span>
-                    </div>
-                </div>
-                
+                <!-- ИЗМЕНЕННЫЙ БЛОК "ИИ РЕКОМЕНДАЦИЯ" -->
                 <div class="recommendation ai-recommendation" id="ai-recommendation" style="display: none;">
                     <div class="recommendation-title">ИИ Рекомендация</div>
-                    <div class="recommendation-desc" id="ai-recommendation-text">Анализ ИИ будет показан здесь</div>
+                    <div class="ai-corrected-total" id="ai-corrected-total">--</div>
+                    <div class="ai-recommendation-details" id="ai-recommendation-details">С учетом коррекции отклонения</div>
                     
                     <div class="confidence">
-                        <span class="confidence-text">Уверенность ИИ:</span>
+                        <span class="confidence-text">Сила коррекции:</span>
                         <div class="confidence-bar">
                             <div class="confidence-fill" id="ai-confidence-bar" style="width: 0%"></div>
                         </div>
@@ -1546,6 +1564,12 @@
             const resultDeviationThreshold = document.getElementById('result-deviation-threshold');
             const resultDeviationRecommendation = document.getElementById('result-deviation-recommendation');
             const resultDeviationConfidence = document.getElementById('result-deviation-confidence');
+
+            // Элементы для нового блока ИИ рекомендации
+            const aiCorrectedTotal = document.getElementById('ai-corrected-total');
+            const aiRecommendationDetails = document.getElementById('ai-recommendation-details');
+            const aiConfidenceBar = document.getElementById('ai-confidence-bar');
+            const aiConfidenceValue = document.getElementById('ai-confidence-value');
 
             // Поля для ручного ввода
             const manualInputs = document.querySelectorAll('.input-field[inputmode]');
@@ -2733,6 +2757,14 @@
                 generatePredictions(parseInt(score1), parseInt(score2), parseInt(periodInput), timeInput, totalInput, totalTypeInput, useAI);
             }
             
+            // ИЗМЕНЕННАЯ ФУНКЦИЯ: Расчет скорректированного тотала на основе коррекции уверенности
+            function calculateCorrectedTotal(originalTotal, confidenceAdjustment) {
+                // Применяем коррекцию уверенности к исходному тоталу
+                const correctedTotal = originalTotal * (1 + confidenceAdjustment / 100);
+                
+                return correctedTotal;
+            }
+            
             // Функция генерации прогнозов с учетом кибербаскетбола и ИИ
             function generatePredictions(score1, score2, period, timeElapsed, totalLine, totalType, useAI = false) {
                 // Базовые расчеты
@@ -2856,40 +2888,12 @@
                 // ОБНОВЛЕНИЕ: Ожидаемый тотал теперь равен сумме очков из прогноза счета
                 const expectedTotal = predictedScore1 + predictedScore2;
                 
-                // Формирование рекомендации
-                let recommendation = "";
-                let aiRecommendationText = "";
                 let confidence = 0;
-                
-                // Улучшенный расчет уверенности
-                const timeConfidence = Math.min(100, 70 + (period * 5)); // Чем позже период, тем выше уверенность
-                const paceConfidence = Math.min(30, pointsPerMinute * 2); // Чем выше темп, тем выше уверенность
-                const differenceConfidence = Math.max(20, 50 - (scoreDifference * 2)); // Чем больше разница, тем ниже уверенность
-                
-                confidence = (timeConfidence + paceConfidence + differenceConfidence) / 3;
-                
-                // Базовая рекомендация
-                if (totalType === 'over') {
-                    if (expectedTotal > totalLine) {
-                        recommendation = `Рекомендуется ставка на ТОТАЛ БОЛЬШЕ ${totalLine}`;
-                        confidence += 10;
-                    } else {
-                        recommendation = `НЕ рекомендуется ставка на ТОТАЛ БОЛЬШЕ ${totalLine}`;
-                        confidence -= 5;
-                    }
-                } else if (totalType === 'under') {
-                    if (expectedTotal < totalLine) {
-                        recommendation = `Рекомендуется ставка на ТОТАЛ МЕНЬШЕ ${totalLine}`;
-                        confidence += 10;
-                    } else {
-                        recommendation = `НЕ рекомендуется ставка на ТОТАЛ МЕНЬШЕ ${totalLine}`;
-                        confidence -= 5;
-                    }
-                }
+                let deviationResult = null;
                 
                 // ДОБАВЛЕНИЕ: Фактор отклонения в основной расчет
                 if (totalLine > 0) {
-                    const deviationResult = calculateDeviationFactor(expectedTotal, totalLine, totalType);
+                    deviationResult = calculateDeviationFactor(expectedTotal, totalLine, totalType);
                     confidence += deviationResult.confidenceAdjustment;
                     
                     // Обновляем блок фактора отклонения в результатах
@@ -2902,58 +2906,14 @@
                     resultDeviationFactor.style.display = 'block';
                 }
                 
-                // ИИ рекомендация
-                if (useAI) {
-                    if (totalType === 'over') {
-                        if (expectedTotal > totalLine) {
-                            const advantage = ((expectedTotal - totalLine) / totalLine * 100).toFixed(1);
-                            aiRecommendationText = `ИИ СИЛЬНО РЕКОМЕНДУЕТ ТБ ${totalLine} (преимущество: +${advantage}%)`;
-                            aiConfidence += 15;
-                        } else {
-                            const disadvantage = ((totalLine - expectedTotal) / totalLine * 100).toFixed(1);
-                            aiRecommendationText = `ИИ НЕ РЕКОМЕНДУЕТ ТБ ${totalLine} (риск: ${disadvantage}%)`;
-                            aiConfidence -= 10;
-                        }
-                    } else if (totalType === 'under') {
-                        if (expectedTotal < totalLine) {
-                            const advantage = ((totalLine - expectedTotal) / totalLine * 100).toFixed(1);
-                            aiRecommendationText = `ИИ СИЛЬНО РЕКОМЕНДУЕТ ТМ ${totalLine} (преимущество: +${advantage}%)`;
-                            aiConfidence += 15;
-                        } else {
-                            const disadvantage = ((expectedTotal - totalLine) / totalLine * 100).toFixed(1);
-                            aiRecommendationText = `ИИ НЕ РЕКОМЕНДУЕТ ТМ ${totalLine} (риск: ${disadvantage}%)`;
-                            aiConfidence -= 10;
-                        }
-                    }
-                    
-                    // Добавляем объяснение от ИИ
-                    let aiExplanation = "На основе обучения ИИ: ";
-                    const factors = [];
-                    
-                    if (Math.abs(aiCorrection.day) > 3) factors.push(`день недели (${aiCorrection.day > 0 ? '+' : ''}${aiCorrection.day.toFixed(1)}%)`);
-                    if (Math.abs(aiCorrection.time) > 3) factors.push(`время суток (${aiCorrection.time > 0 ? '+' : ''}${aiCorrection.time.toFixed(1)}%)`);
-                    if (Math.abs(aiCorrection.pace) > 3) factors.push(`темп игры (${aiCorrection.pace > 0 ? '+' : ''}${aiCorrection.pace}%)`);
-                    if (Math.abs(aiCorrection.accuracy) > 2) factors.push(`точность модели (${aiCorrection.accuracy > 0 ? '+' : ''}${aiCorrection.accuracy.toFixed(1)}%)`);
-                    
-                    if (factors.length > 0) {
-                        aiExplanation += factors.join(", ");
-                    } else {
-                        aiExplanation += "незначительные корректировки";
-                    }
-                    
-                    aiRecommendationText += `\n${aiExplanation}`;
-                    
-                    // Сравнение с обычным прогнозом
-                    const standardTotal = basePredictedTotalPoints * (1 + window.cyberFactors.totalFactor / 100);
-                    const difference = expectedTotal - standardTotal;
-                    
-                    if (Math.abs(difference) > 2) {
-                        aiRecommendationText += `\n\nИИ коррекция: ${difference > 0 ? '+' : ''}${difference.toFixed(1)} очков от стандартного прогноза`;
-                    }
-                }
+                // Улучшенный расчет уверенности
+                const timeConfidence = Math.min(100, 70 + (period * 5)); // Чем позже период, тем выше уверенность
+                const paceConfidence = Math.min(30, pointsPerMinute * 2); // Чем выше темп, тем выше уверенность
+                const differenceConfidence = Math.max(20, 50 - (scoreDifference * 2)); // Чем больше разница, тем ниже уверенность
+                
+                confidence = (timeConfidence + paceConfidence + differenceConfidence) / 3;
                 
                 confidence = Math.min(95, Math.max(50, confidence));
-                aiConfidence = Math.min(95, Math.max(50, aiConfidence));
                 
                 // Обновляем интерфейс с результатами
                 // ОБНОВЛЕНИЕ: используем expectedTotal (сумму очков из прогноза счета) вместо predictedTotalPoints
@@ -2961,14 +2921,32 @@
                 document.getElementById('predicted-pace').textContent = pointsPerMinute.toFixed(2);
                 document.getElementById('predicted-score').textContent = `${predictedScore1}:${predictedScore2}`;
                 
-                document.getElementById('recommendation-text').textContent = recommendation;
-                document.getElementById('confidence-bar').style.width = `${confidence}%`;
-                document.getElementById('confidence-value').textContent = `${Math.round(confidence)}%`;
-                
-                if (useAI) {
-                    document.getElementById('ai-recommendation-text').textContent = aiRecommendationText;
-                    document.getElementById('ai-confidence-bar').style.width = `${aiConfidence}%`;
-                    document.getElementById('ai-confidence-value').textContent = `${Math.round(aiConfidence)}%`;
+                // ИЗМЕНЕННЫЙ БЛОК ИИ РЕКОМЕНДАЦИИ
+                if (useAI && deviationResult && totalLine > 0) {
+                    // ИЗМЕНЕНИЕ: Берем тотал из вкладки "загрузка" и применяем коррекцию уверенности
+                    const correctedTotal = calculateCorrectedTotal(totalLine, deviationResult.confidenceAdjustment);
+                    
+                    // Обновляем блок ИИ Рекомендации
+                    aiCorrectedTotal.textContent = correctedTotal.toFixed(1);
+                    
+                    // Устанавливаем цвет блока в зависимости от знака коррекции
+                    if (deviationResult.confidenceAdjustment > 0) {
+                        aiRecommendation.className = 'recommendation ai-recommendation positive';
+                        aiRecommendationDetails.textContent = `Коррекция уверенности: +${deviationResult.confidenceAdjustment.toFixed(1)}%`;
+                    } else if (deviationResult.confidenceAdjustment < 0) {
+                        aiRecommendation.className = 'recommendation ai-recommendation negative';
+                        aiRecommendationDetails.textContent = `Коррекция уверенности: ${deviationResult.confidenceAdjustment.toFixed(1)}%`;
+                    } else {
+                        aiRecommendation.className = 'recommendation ai-recommendation';
+                        aiRecommendationDetails.textContent = 'Коррекция уверенности: 0%';
+                    }
+                    
+                    // Обновляем индикатор уверенности (абсолютное значение коррекции)
+                    const absAdjustment = Math.abs(deviationResult.confidenceAdjustment);
+                    aiConfidenceBar.style.width = `${absAdjustment}%`;
+                    aiConfidenceValue.textContent = `${absAdjustment.toFixed(1)}%`;
+                    
+                    // Показываем блок
                     aiRecommendation.style.display = 'block';
                 } else {
                     aiRecommendation.style.display = 'none';
@@ -2982,10 +2960,10 @@
                     totalLine: totalLine,
                     totalType: totalType,
                     predictedTotal: expectedTotal, // Используем expectedTotal
-                    recommendation: recommendation,
-                    aiRecommendation: useAI ? aiRecommendationText : null,
+                    recommendation: deviationResult ? deviationResult.recommendation : "Анализ завершен",
+                    aiRecommendation: useAI && totalLine > 0 ? `Скорректированный тотал: ${calculateCorrectedTotal(totalLine, deviationResult.confidenceAdjustment).toFixed(1)}` : null,
                     confidence: confidence,
-                    aiConfidence: useAI ? aiConfidence : null,
+                    aiConfidence: useAI ? Math.abs(deviationResult.confidenceAdjustment) : null,
                     factors: window.cyberFactors,
                     timestamp: new Date().toISOString(),
                     useAI: useAI
@@ -3143,13 +3121,6 @@
                 document.getElementById('predicted-pace').textContent = '--';
                 document.getElementById('predicted-score').textContent = '--';
                 
-                document.getElementById('recommendation-text').textContent = 'Загрузите скриншот или введите данные';
-                document.getElementById('confidence-bar').style.width = '0%';
-                document.getElementById('confidence-value').textContent = '0%';
-                
-                document.getElementById('ai-recommendation-text').textContent = 'Анализ ИИ будет показан здесь';
-                document.getElementById('ai-confidence-bar').style.width = '0%';
-                document.getElementById('ai-confidence-value').textContent = '0%';
                 aiRecommendation.style.display = 'none';
                 
                 previewImg.style.display = 'none';
