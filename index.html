@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon202.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon282.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BSK7">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1125,12 +1125,91 @@
                                 <span class="factor-value" id="total-factor">+0.0%</span>
                             </div>
                         </div>
+                        
+                        <div class="ai-factors" id="ai-factors">
+                            <div class="ai-title">ИИ коррекция на основе обучения:</div>
+                            <div class="factor-item">
+                                <span class="factor-label">ИИ коррекция дня:</span>
+                                <span class="factor-value" id="ai-day-factor">+0.0%</span>
+                            </div>
+                            <div class="factor-item">
+                                <span class="factor-label">ИИ коррекция времени:</span>
+                                <span class="factor-value" id="ai-time-factor">+0.0%</span>
+                            </div>
+                            <div class="factor-item">
+                                <span class="factor-label">ИИ коррекция периода:</span>
+                                <span class="factor-value" id="ai-period-factor">+0.0%</span>
+                            </div>
+                            <div class="factor-item">
+                                <span class="factor-label">ИИ коррекция темпа:</span>
+                                <span class="factor-value" id="ai-pace-factor">+0.0%</span>
+                            </div>
+                            <div class="factor-item">
+                                <span class="factor-label">ИИ коррекция точности:</span>
+                                <span class="factor-value" id="ai-accuracy-factor">+0.0%</span>
+                            </div>
+                            <div class="factor-item">
+                                <span class="factor-label">Общая ИИ коррекция:</span>
+                                <span class="factor-value" id="ai-total-factor">+0.0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Новый блок: Фактор отклонения -->
+                    <div class="deviation-factor" id="deviation-factor" style="display: none;">
+                        <div class="deviation-title">Коррекция по отклонению прогноза:</div>
+                        <div class="factor-item">
+                            <span class="factor-label">Отклонение прогноза:</span>
+                            <span class="factor-value" id="deviation-value">0.0</span>
+                        </div>
+                        <div class="factor-item">
+                            <span class="factor-label">Порог отклонения:</span>
+                            <span class="factor-value" id="deviation-threshold">5.0</span>
+                        </div>
+                        <div class="factor-item">
+                            <span class="factor-label">Рекомендация по отклонению:</span>
+                            <span class="factor-value" id="deviation-recommendation">--</span>
+                        </div>
+                        <div class="factor-item">
+                            <span class="factor-label">Корректировка уверенности:</span>
+                            <span class="factor-value" id="deviation-confidence">+0%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Новый блок: Руководство по отклонениям -->
+                    <div class="deviation-guide">
+                        <div class="guide-title">Как интерпретировать отклонение:</div>
+                        <div class="guide-item">
+                            <i class="fas fa-arrow-up guide-positive guide-icon"></i>
+                            <span>Если прогноз ВЫШЕ тотала на 5+ очков → ставьте на <strong>ТБ</strong> (Тотал больше)</span>
+                        </div>
+                        <div class="guide-item">
+                            <i class="fas fa-arrow-down guide-negative guide-icon"></i>
+                            <span>Если прогноз НИЖЕ тотала на 5+ очков → ставьте на <strong>ТМ</strong> (Тотал меньше)</span>
+                        </div>
+                        <div class="guide-item">
+                            <i class="fas fa-info-circle guide-icon"></i>
+                            <span>Отклонение > 5 очков считается значительным для принятия решения</span>
+                        </div>
                     </div>
                     
                     <div class="action-buttons">
                         <button class="action-btn analyze-btn" id="manual-submit">Анализировать</button>
                         <button class="action-btn ai-btn" id="ai-analyze">ИИ Анализ</button>
                         <button class="action-btn clear-btn" id="clear-btn">Очистить</button>
+                    </div>
+                    
+                    <!-- Новый блок: Автоматическая рекомендация -->
+                    <div class="auto-recommendation" id="auto-recommendation" style="display: none;">
+                        <h3>Автоматическая рекомендация</h3>
+                        <div class="recommendation-desc" id="auto-recommendation-text">Введите данные для получения рекомендации</div>
+                        <div class="confidence">
+                            <span class="confidence-text">Уверенность:</span>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" id="auto-confidence-bar" style="width: 0%"></div>
+                            </div>
+                            <span id="auto-confidence-value" style="margin-left: 8px;">0%</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -1466,6 +1545,19 @@
             const actualScore2Input = document.getElementById('actual-score2');
             const feedbackStats = document.getElementById('feedback-stats');
 
+            // Новые элементы для фактора отклонения
+            const deviationFactor = document.getElementById('deviation-factor');
+            const deviationValue = document.getElementById('deviation-value');
+            const deviationThreshold = document.getElementById('deviation-threshold');
+            const deviationRecommendation = document.getElementById('deviation-recommendation');
+            const deviationConfidence = document.getElementById('deviation-confidence');
+            
+            // Новые элементы для автоматической рекомендации
+            const autoRecommendation = document.getElementById('auto-recommendation');
+            const autoRecommendationText = document.getElementById('auto-recommendation-text');
+            const autoConfidenceBar = document.getElementById('auto-confidence-bar');
+            const autoConfidenceValue = document.getElementById('auto-confidence-value');
+            
             // Элементы для результатов
             const resultDeviationFactor = document.getElementById('result-deviation-factor');
             const resultDeviationValue = document.getElementById('result-deviation-value');
@@ -1781,8 +1873,11 @@
                     
                     // Обновляем порог отклонения в интерфейсе
                     const threshold = this.avgDeviation || 5;
-                    document.getElementById('deviation-threshold').textContent = threshold.toFixed(1);
+                    deviationThreshold.textContent = threshold.toFixed(1);
                     resultDeviationThreshold.textContent = threshold.toFixed(1);
+                    
+                    // Обновляем руководство по отклонениям
+                    updateDeviationGuide(threshold);
                 }
                 
                 updateDisplay() {
@@ -2063,6 +2158,26 @@
                 }
             }
             
+            // Функция для обновления руководства по отклонениям
+            function updateDeviationGuide(threshold) {
+                const deviationGuide = document.querySelector('.deviation-guide');
+                deviationGuide.innerHTML = `
+                    <div class="guide-title">Как интерпретировать отклонение (порог: ${threshold.toFixed(1)} очков):</div>
+                    <div class="guide-item">
+                        <i class="fas fa-arrow-up guide-positive guide-icon"></i>
+                        <span>Если прогноз ВЫШЕ тотала на <strong>${threshold.toFixed(1)}+ очков</strong> → ставьте на <strong>ТБ</strong> (Тотал больше)</span>
+                    </div>
+                    <div class="guide-item">
+                        <i class="fas fa-arrow-down guide-negative guide-icon"></i>
+                        <span>Если прогноз НИЖЕ тотала на <strong>${threshold.toFixed(1)}+ очков</strong> → ставьте на <strong>ТМ</strong> (Тотал меньше)</span>
+                    </div>
+                    <div class="guide-item">
+                        <i class="fas fa-info-circle guide-icon"></i>
+                        <span>Отклонение > ${threshold.toFixed(1)} очков считается значительным для принятия решения</span>
+                    </div>
+                `;
+            }
+            
             // НОВАЯ ФУНКЦИЯ: Расчет фактора отклонения с использованием среднего отклонения ИИ
             function calculateDeviationFactor(predictedTotal, totalLine, totalType) {
                 const deviation = predictedTotal - totalLine;
@@ -2107,6 +2222,159 @@
                     confidenceAdjustment: confidenceAdjustment,
                     threshold: avgDeviation
                 };
+            }
+            
+            // ОБНОВЛЕННАЯ ФУНКЦИЯ: Автоматический расчет при изменении полей ввода
+            function setupAutoCalculation() {
+                const inputFields = [
+                    'manual-score1', 'manual-score2', 'manual-period', 
+                    'manual-minutes', 'manual-seconds', 'manual-total', 'manual-total-type'
+                ];
+                
+                // Debounce функция для оптимизации
+                function debounce(func, wait) {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func(...args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                }
+                
+                const autoCalculate = debounce(function() {
+                    const score1 = document.getElementById('manual-score1').value;
+                    const score2 = document.getElementById('manual-score2').value;
+                    const period = document.getElementById('manual-period').value;
+                    const minutes = document.getElementById('manual-minutes').value;
+                    const seconds = document.getElementById('manual-seconds').value;
+                    const total = document.getElementById('manual-total').value;
+                    
+                    // Проверяем, что все обязательные поля заполнены
+                    if (score1 && score2 && period && minutes && seconds) {
+                        performAutoCalculation();
+                    } else {
+                        // Скрываем блоки, если данные неполные
+                        autoRecommendation.style.display = 'none';
+                        deviationFactor.style.display = 'none';
+                    }
+                }, 500);
+                
+                // Добавляем обработчики на все поля
+                inputFields.forEach(fieldId => {
+                    document.getElementById(fieldId).addEventListener('input', autoCalculate);
+                });
+            }
+            
+            // НОВАЯ ФУНКЦИЯ: Автоматический расчет рекомендации
+            function performAutoCalculation() {
+                const score1 = parseInt(document.getElementById('manual-score1').value) || 0;
+                const score2 = parseInt(document.getElementById('manual-score2').value) || 0;
+                const period = parseInt(document.getElementById('manual-period').value) || 1;
+                const minutes = document.getElementById('manual-minutes').value || '00';
+                const seconds = document.getElementById('manual-seconds').value || '00';
+                const totalLine = parseFloat(document.getElementById('manual-total').value) || 0;
+                const totalType = document.getElementById('manual-total-type').value;
+                
+                // Базовые расчеты
+                const totalPoints = score1 + score2;
+                const [minutesElapsed, secondsElapsed] = [minutes, seconds].map(Number);
+                const totalSecondsElapsed = minutesElapsed * 60 + secondsElapsed;
+                
+                // Определение параметров в зависимости от лиги
+                let secondsInPeriod, totalPeriods, baseMultiplier;
+                const leagueType = leagueSelect.value;
+                
+                if (leagueType === '12_4') {
+                    secondsInPeriod = 12 * 60;
+                    totalPeriods = 4;
+                    baseMultiplier = 1.0;
+                } else if (leagueType === '10_4') {
+                    secondsInPeriod = 10 * 60;
+                    totalPeriods = 4;
+                    baseMultiplier = 1.0;
+                } else {
+                    secondsInPeriod = 5 * 60;
+                    totalPeriods = 4;
+                    baseMultiplier = 1.15;
+                }
+                
+                // Расчет оставшегося времени
+                const secondsRemainingInCurrentPeriod = secondsInPeriod - totalSecondsElapsed;
+                const fullPeriodsRemaining = totalPeriods - period;
+                const totalSecondsRemaining = secondsRemainingInCurrentPeriod + (fullPeriodsRemaining * secondsInPeriod);
+                const minutesRemaining = totalSecondsRemaining / 60;
+                
+                // Расчет текущего темпа
+                const totalSecondsPlayed = (period - 1) * secondsInPeriod + totalSecondsElapsed;
+                const minutesPlayed = totalSecondsPlayed / 60;
+                const pointsPerMinute = minutesPlayed > 0 ? totalPoints / minutesPlayed : 0;
+                
+                // Базовый прогноз
+                let predictedTotalPoints = totalPoints + (pointsPerMinute * minutesRemaining * baseMultiplier);
+                
+                // Учет факторов кибербаскетбола
+                if (leagueType === '5_4_cyber' && window.cyberFactors) {
+                    const { totalFactor } = window.cyberFactors;
+                    predictedTotalPoints = predictedTotalPoints * (1 + totalFactor / 100);
+                }
+                
+                // Прогноз счета
+                const team1Share = totalPoints > 0 ? score1 / totalPoints : 0.5;
+                const team2Share = totalPoints > 0 ? score2 / totalPoints : 0.5;
+                const predictedScore1 = Math.round(score1 + (pointsPerMinute * minutesRemaining * team1Share * baseMultiplier));
+                const predictedScore2 = Math.round(score2 + (pointsPerMinute * minutesRemaining * team2Share * baseMultiplier));
+                const expectedTotal = predictedScore1 + predictedScore2;
+                
+                // Расчет уверенности
+                let confidence = 50;
+                confidence += Math.min(20, period * 3);
+                confidence += Math.min(15, pointsPerMinute * 2);
+                
+                // Расчет фактора отклонения с использованием среднего отклонения ИИ
+                if (totalLine > 0) {
+                    const deviationResult = calculateDeviationFactor(expectedTotal, totalLine, totalType);
+                    
+                    // Обновляем блок фактора отклонения
+                    deviationValue.textContent = deviationResult.deviation.toFixed(1);
+                    deviationRecommendation.textContent = deviationResult.recommendation;
+                    deviationConfidence.textContent = `${deviationResult.confidenceAdjustment > 0 ? '+' : ''}${deviationResult.confidenceAdjustment.toFixed(1)}%`;
+                    deviationThreshold.textContent = deviationResult.threshold.toFixed(1);
+                    
+                    // Применяем коррекцию уверенности
+                    confidence += deviationResult.confidenceAdjustment;
+                    
+                    // Показываем блок фактора отклонения
+                    deviationFactor.style.display = 'block';
+                    
+                    // Формируем автоматическую рекомендацию
+                    let autoRecommendationTextValue = "";
+                    if (deviationResult.recommendation.includes("РЕКОМЕНДУЕТСЯ")) {
+                        autoRecommendationTextValue = deviationResult.recommendation;
+                    } else if (deviationResult.recommendation.includes("ОСТОРОЖНО")) {
+                        autoRecommendationTextValue = deviationResult.recommendation;
+                    } else {
+                        autoRecommendationTextValue = deviationResult.recommendation;
+                    }
+                    
+                    autoRecommendationText.textContent = autoRecommendationTextValue;
+                } else {
+                    // Если тотал не введен, показываем только прогноз
+                    autoRecommendationText.textContent = `Прогноз тотала: ${expectedTotal.toFixed(1)}`;
+                    deviationFactor.style.display = 'none';
+                }
+                
+                // Ограничиваем уверенность
+                confidence = Math.min(95, Math.max(30, confidence));
+                
+                // Обновляем индикатор уверенности
+                autoConfidenceBar.style.width = `${confidence}%`;
+                autoConfidenceValue.textContent = `${Math.round(confidence)}%`;
+                
+                // Показываем блок автоматической рекомендации
+                autoRecommendation.style.display = 'block';
             }
             
             // Функция парсинга данных из распознанного текста
@@ -2388,6 +2656,9 @@
                         progressBar.style.display = 'none';
                         cancelProcess.style.display = 'none';
                         isProcessing = false;
+                        
+                        // Запускаем автоматический расчет
+                        performAutoCalculation();
                         
                         // Переключаемся на вкладку результатов
                         tabs.forEach(t => t.classList.remove('active'));
@@ -2861,6 +3132,11 @@
                 aiFactorsResults.style.display = 'none';
                 feedbackStats.style.display = 'none';
                 
+                // Скрываем новые блоки
+                autoRecommendation.style.display = 'none';
+                deviationFactor.style.display = 'none';
+                resultDeviationFactor.style.display = 'none';
+                
                 // Очищаем поля обратной связи
                 actualTotalInput.value = '';
                 actualScore1Input.value = '';
@@ -2873,6 +3149,7 @@
             // Инициализация при загрузке
             updateCyberFactors();
             aiSystem.updateDisplay();
+            setupAutoCalculation(); // Инициализация автоматического расчета
         });
     </script>
 </body>
